@@ -1,32 +1,36 @@
 #include <iostream>
 #include <cmath>
 #include <numbers>
-#include <omp.h>
+#include <memory>
 #include "types.h"
 
-#define PRECISION 10000000
+#ifdef EN_PARALLELISM
+#include <omp.h>
+#endif
 
-fp_type sin_values[PRECISION];
+#define PRECISION 10'000'000
+
 const fp_type period = std::numbers::pi * 2;
 
 int main(int argc, char const *argv[])
 {
+    using std::unique_ptr;
+    unique_ptr<fp_type[]> sin_values = std::make_unique<fp_type[]>(PRECISION);
     fp_type sum = 0;
 
-    // #pragma omp parallel for reduction(+:sum)
+    #ifdef EN_PARALLELISM
+    #pragma omp parallel for reduction(+:sum)
+    #endif
     for (int i = 0; i < PRECISION; i++)
     {
         fp_type temp = (period * i) / PRECISION;
 
-        #if (FPLEN == 8)
+        #ifdef USE_DOUBLE
         sin_values[i] = std::sin(temp);
-        #elif (FPLEN == 4)
+        #else
         sin_values[i] = std::sinf(temp);
         #endif
-    }
 
-    for (int i = 0; i < PRECISION; i++)
-    {
         sum += sin_values[i];
     }
 

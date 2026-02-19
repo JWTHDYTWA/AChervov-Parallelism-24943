@@ -6,15 +6,19 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(USE_DOUBLE "Use double type instead of float" OFF)
+option(EN_PARALLELISM "Enable parallelism" OFF)
 
 if(USE_DOUBLE)
-    add_compile_definitions(FPLEN=8)
-else()
-    add_compile_definitions(FPLEN=4)
+    add_compile_definitions(USE_DOUBLE)
 endif()
 
 find_package(OpenMP REQUIRED)
 add_subdirectory(inc)
 
 add_executable(circlesin main.cpp)
-target_link_libraries(circlesin PUBLIC types OpenMP::OpenMP_CXX)
+target_link_libraries(circlesin PUBLIC types)
+
+if(EN_PARALLELISM)
+    target_link_libraries(circlesin PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(circlesin PRIVATE EN_PARALLELISM)
+endif(EN_PARALLELISM)
