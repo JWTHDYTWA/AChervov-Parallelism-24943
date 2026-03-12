@@ -2,7 +2,7 @@
 #include <cmath>
 #include <numbers>
 #include <memory>
-#include "types.h"
+#include "fp_types.h"
 
 #ifdef EN_PARALLELISM
 #include <omp.h>
@@ -25,11 +25,7 @@ int main(int argc, char const *argv[])
     {
         fp_type temp = (period * i) / PRECISION;
 
-        #ifdef USE_DOUBLE
         sin_values[i] = std::sin(temp);
-        #else
-        sin_values[i] = std::sinf(temp);
-        #endif
 
         sum += sin_values[i];
     }
