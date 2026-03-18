@@ -75,17 +75,17 @@ matrix operator* (const matrix &A, const matrix &B)
         size_t local_m_A;
 
         #pragma omp for schedule(static)
-        for (size_t n = 0; n < B._N; n++)
+        for (size_t n = 0; n < local_N; n++)
         {
-            for (size_t m = 0; m < A._M; m++)
+            for (size_t m = 0; m < local_M; m++)
             {
                 local_m_A = m * local_K;
                 double sum = 0;
-                for (size_t k = 0; k < A._N; k++)
+                for (size_t k = 0; k < local_K; k++)
                 {
                     sum += (A[local_m_A + k] * B[k * local_N + n]);
                 }
-                C[m * B._N + n] = sum;
+                C[m * local_N + n] = sum;
             }
         }
         
