@@ -5,9 +5,6 @@
 #include <omp.h>
 #include "matrix.h"
 
-// #define N 20000
-// #define SIZE (20000 * 20000)
-
 void initialize_matrix(matrix &A);
 void initialize_vector(matrix &V);
 
@@ -15,15 +12,19 @@ int main(int argc, char const *argv[])
 {
     using std::cout, std::endl;
 
+    size_t size = 20000;
     if (argc >= 2)
     {
         omp_set_num_threads(atoi(argv[1]));
     }
-    
+    if (argc >= 3)
+    {
+        size = atoll(argv[2]);
+    }
 
-    matrix A(20000, 20000);
+    matrix A(size, size);
     initialize_matrix(A);
-    matrix V(20000, 1);
+    matrix V(size, 1);
     initialize_vector(V);
 
     // cout << A[0] << endl;
