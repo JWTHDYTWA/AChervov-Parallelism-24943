@@ -15,7 +15,6 @@ int main(int argc, char const *argv[])
 {
     using std::cout, std::endl;
 
-    uint32_t threads;
     if (argc >= 2)
     {
         omp_set_num_threads(atoi(argv[1]));
@@ -35,12 +34,13 @@ int main(int argc, char const *argv[])
     // cout << V[15000] << endl;
     // cout << V[11000] << endl;
 
-    clock_t start = clock();
+    const auto start{std::chrono::steady_clock::now()};
     matrix C = A * V;
-    clock_t end = clock();
+    const auto end{std::chrono::steady_clock::now()};
+    const std::chrono::duration<double> elapsed_seconds{end - start};
     cout << "Matrix multiplication took "
-         << (float)(end-start)/CLOCKS_PER_SEC
-         << " seconds on "
+         << elapsed_seconds
+         << " on "
          << omp_get_max_threads()
          << " threads." << endl;
     
