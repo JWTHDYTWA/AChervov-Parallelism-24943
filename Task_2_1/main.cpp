@@ -55,24 +55,24 @@ void initialize_matrix(matrix &A)
         size_t M = A.getM();
         size_t N = A.getN();
 
-        int thread = omp_get_thread_num();
-        bool first_i = true;
+        // int thread = omp_get_thread_num();
+        // bool first_i = true;
 
         #pragma omp for schedule(static)
         for (size_t m = 0; m < A.getM(); m++)
         {
-            if (first_i)
+            // if (first_i)
+            // {
+            //     #pragma omp critical
+            //     {
+            //         std::cout << "Thread " << thread << " started from row " << m << std::endl;
+            //         first_i = false;
+            //     }
+            // }
+            for (size_t n = 0; n < N; n++)
             {
-                #pragma omp critical
-                {
-                    std::cout << "Thread " << thread << " started from row " << m << std::endl;
-                    first_i = false;
-                }
-            }
-            for (size_t n = 0; n < A.getN(); n++)
-            {
-                if (m==n) A[m*A.getN() + n] = 2.0;
-                else A[m*A.getN() + n] = 1.0;
+                if (m==n) A[m*N + n] = 2.0;
+                else A[m*N + n] = 1.0;
             }
         }
     }
