@@ -45,3 +45,6 @@ build/
 
 # IDE folder
 .vscode/
+
+# Media files
+*.jpg
