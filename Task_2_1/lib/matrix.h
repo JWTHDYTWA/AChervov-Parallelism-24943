@@ -68,17 +68,19 @@ matrix operator* (const matrix &A, const matrix &B)
     matrix C(A._M, B._N);
     #pragma omp parallel
     {
+        size_t local_m_A;
+        size_t local_m_B = B._N;
 
         #pragma omp for schedule(static)
         for (size_t n = 0; n < B._N; n++)
         {
             for (size_t m = 0; m < A._M; m++)
             {
-                size_t local_m = m * A._N;
+                local_m_A = m * A._N;
                 double sum = 0;
                 for (size_t k = 0; k < A._N; k++)
                 {
-                    sum += (A[m * A._N + k] * B[k * B._N + n]);
+                    sum += (A[local_m_A + k] * B[k * local_m_B + n]);
                 }
                 C[m * B._N + n] = sum;
             }
