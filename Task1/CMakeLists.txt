@@ -16,7 +16,7 @@ find_package(OpenMP REQUIRED)
 add_subdirectory(inc)
 
 add_executable(circlesin main.cpp)
-target_link_libraries(circlesin PUBLIC types)
+target_link_libraries(circlesin PUBLIC fp_types)
 
 if(EN_PARALLELISM)
     target_link_libraries(circlesin PUBLIC OpenMP::OpenMP_CXX)
