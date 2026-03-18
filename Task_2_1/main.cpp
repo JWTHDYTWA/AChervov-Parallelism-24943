@@ -39,8 +39,8 @@ int main(int argc, char const *argv[])
     const auto end{std::chrono::steady_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{end - start};
     cout << "Matrix multiplication took "
-         << elapsed_seconds
-         << " on "
+         << elapsed_seconds.count()
+         << " seconds on "
          << omp_get_max_threads()
          << " threads." << endl;
     
