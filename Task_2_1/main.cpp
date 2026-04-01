@@ -1,9 +1,22 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <tuple>
 #include <chrono>
 #include <omp.h>
+// #include <boost/program_options.hpp>
 #include "matrix.h"
+
+// namespace po = boost::program_options;
+
+template <typename RES_T>
+struct BenchResult
+{
+    bool status;
+    std::chrono::duration<double> duration;
+    RES_T result;
+};
+
 
 void initialize_matrix(matrix &A);
 void initialize_vector(matrix &V);
@@ -11,6 +24,11 @@ void initialize_vector(matrix &V);
 int main(int argc, char const *argv[])
 {
     using std::cout, std::endl;
+
+    // po::options_description desc("Options");
+    // desc.add_options()
+    //     ("threads,t", po::value<int>(), "Number of parallel threads")
+    //     ("size,s", po::value<size_t>(), "Matrix dimension span - M=N");
 
     size_t size = 20000;
     if (argc >= 2)
@@ -90,4 +108,9 @@ void initialize_vector(matrix &V)
             V[m] = val;
         }
     }
+}
+
+BenchResult<matrix> benchmark(size_t )
+{
+
 }
