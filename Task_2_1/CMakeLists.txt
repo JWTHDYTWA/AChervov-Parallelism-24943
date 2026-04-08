@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(lib)
 find_package(OpenMP REQUIRED)
-# find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 add_executable(matrix_mult main.cpp)
-target_link_libraries(matrix_mult PRIVATE matrix OpenMP::OpenMP_CXX)
+target_link_libraries(matrix_mult PRIVATE matrix OpenMP::OpenMP_CXX Boost::program_options)

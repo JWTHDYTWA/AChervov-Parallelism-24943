@@ -1,68 +1,92 @@
 #include <cstdint>
 #include <iostream>
+#include <fstream>
 #include <memory>
-#include <tuple>
+#include <vector>
+#include <optional>
 #include <chrono>
 #include <omp.h>
-// #include <boost/program_options.hpp>
-#include "matrix.h"
 
-// namespace po = boost::program_options;
+#include <boost/program_options.hpp>
+
+#include "matrix.hpp"
+#include "utilities.hpp"
+
+#define USAGE "./matrix_mult -s SIZE [-t THREADS]"
+
+namespace po = boost::program_options;
 
 template <typename RES_T>
 struct BenchResult
 {
-    bool status;
-    std::chrono::duration<double> duration;
+    std::optional<std::exception> status;
+    double duration;
     RES_T result;
 };
 
 
 void initialize_matrix(matrix &A);
 void initialize_vector(matrix &V);
+BenchResult<matrix> benchmark(size_t, size_t);
 
 int main(int argc, char const *argv[])
 {
-    using std::cout, std::endl;
-
-    // po::options_description desc("Options");
-    // desc.add_options()
-    //     ("threads,t", po::value<int>(), "Number of parallel threads")
-    //     ("size,s", po::value<size_t>(), "Matrix dimension span - M=N");
-
-    size_t size = 20000;
-    if (argc >= 2)
-    {
-        omp_set_num_threads(atoi(argv[1]));
-    }
-    if (argc >= 3)
-    {
-        size = atoll(argv[2]);
-    }
-
-    matrix A(size, size);
-    initialize_matrix(A);
-    matrix V(size, 1);
-    initialize_vector(V);
-
-    // cout << A[0] << endl;
-    // cout << A[1] << endl;
-    // cout << A[20000*5 + 5] << endl;
-    // cout << A[20000 * 15000] << endl;
-
-    // cout << V[15000] << endl;
-    // cout << V[11000] << endl;
-
-    const auto start{std::chrono::steady_clock::now()};
-    matrix C = A * V;
-    const auto end{std::chrono::steady_clock::now()};
-    const std::chrono::duration<double> elapsed_seconds{end - start};
-    cout << "Matrix multiplication took "
-         << elapsed_seconds.count()
-         << " seconds on "
-         << omp_get_max_threads()
-         << " threads." << endl;
+    // Using standard streams
+    using std::cout, std::cin, std::cerr, std::endl;
     
+    try
+    {
+        size_t size;
+        int threads = 0;
+
+        po::options_description desc("Options");
+        desc.add_options()
+        ("help,h", "Displays this message")
+        ("threads,t", po::value<int>(&threads), "Number of parallel threads")
+        ("size,s", po::value<size_t>(&size)->required(), "Matrix dimension span - M=N");
+
+        po::variables_map vm;
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+
+        if (vm.count("help")) {
+            cout << "Usage:" << endl << USAGE << endl << endl;
+            cout << desc << endl;
+            return 0;
+        }
+        po::notify(vm);
+
+        if (vm.count("threads"))
+        {
+            omp_set_num_threads(threads);
+        }
+
+        auto result = benchmark(100, size);
+        
+        if (result.status.has_value())
+        {
+            cerr << "Benchmark encountered a problem:" << endl;
+            cerr << result.status.value().what() << endl;
+        }
+        else
+        {
+            std::ofstream file("./results.csv", std::ios::out | std::ios::app);
+
+            if (!file.is_open()) {
+                cerr << "Couldn't open file." << endl;
+                return 1;
+            }
+
+            if (file.tellp() == 0) {
+                file << "Size;Threads;Duration" << endl;
+            }
+            file << size << ';' << omp_get_max_threads() << ';' << result.duration << endl;
+        }
+    }
+    catch (const po::error &e)
+    {
+        cerr << "Argument error:" << e.what() << endl;
+        cerr << "Use --help to see syntax." << endl;
+    }
     return 0;
 }
 
@@ -110,7 +134,35 @@ void initialize_vector(matrix &V)
     }
 }
 
-BenchResult<matrix> benchmark(size_t )
+BenchResult<matrix> benchmark(size_t test_n, size_t size)
 {
+    BenchResult<matrix> res;
+    std::vector<double> times(test_n);
 
+    try
+    {
+        for (size_t i = 0; i < test_n; i++)
+        {
+            matrix A(size, size);
+            initialize_matrix(A);
+            matrix V(size, 1);
+            initialize_vector(V);
+
+            const auto start{std::chrono::steady_clock::now()};
+            matrix C = A * V;
+            const auto end{std::chrono::steady_clock::now()};
+            const std::chrono::duration<double> elapsed_seconds{end - start};
+            times[i] = elapsed_seconds.count();
+
+            if (i == test_n-1) res.result = C;
+        }
+        res.duration = get_mean(times, 2);
+    }
+    catch(const std::exception& e)
+    {
+        res.status = e;
+    }
+    
+    res.status = std::nullopt;
+    return res;
 }

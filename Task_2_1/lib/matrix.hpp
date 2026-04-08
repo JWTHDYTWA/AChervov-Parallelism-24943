@@ -2,7 +2,9 @@
 
 #include <cstddef>
 #include <memory>
+#include <algorithm>
 #include <stdexcept>
+#include <utility>
 #include <omp.h>
 
 class matrix
@@ -54,7 +56,36 @@ public:
         return _data[m*_N + n];
     }
 
-    friend matrix operator* (const matrix &A, const matrix &V);
+    matrix& operator=(matrix &&other) noexcept
+    {
+        if (this != &other) {
+            _M = std::exchange(other._M, 0);
+            _N = std::exchange(other._N, 0);
+            _data = std::move(other._data);
+        }
+        return *this;
+    }
+    matrix& operator=(const matrix& other)
+    {
+        if (this == &other) {
+            return *this;
+        }
+        size_t new_size = other._M * other._N;
+        size_t old_size = _M * _N;
+
+        if (new_size != old_size) {
+            _data = std::make_unique_for_overwrite<double[]>(new_size);
+        }
+        _M = other._M;
+        _N = other._N;
+
+        if (new_size > 0) {
+            std::copy(other._data.get(), other._data.get() + new_size, _data.get());
+        }
+        return *this;
+    }
+
+    friend matrix operator* (const matrix&, const matrix&);
 
 };
 
