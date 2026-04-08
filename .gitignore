@@ -48,3 +48,5 @@ build/
 
 # Media files
 *.jpg
+
+*.csv
