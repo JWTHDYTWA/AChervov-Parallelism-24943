@@ -60,16 +60,16 @@ int main(int argc, char const *argv[])
             omp_set_num_threads(threads);
         }
 
-        auto result = benchmark(100, size);
+        auto [status, duration, res] = benchmark(100, size);
         
-        if (result.status.has_value())
+        if (status.has_value())
         {
             cerr << "Benchmark encountered a problem:" << endl;
-            cerr << result.status.value().what() << endl;
+            cerr << status.value().what() << endl;
         }
         else
         {
-            std::ofstream file("./results.csv", std::ios::out | std::ios::app);
+            std::ofstream file("./results.csv", std::ios::out | std::ios::app | std::ios::ate);
 
             if (!file.is_open()) {
                 cerr << "Couldn't open file." << endl;
@@ -79,7 +79,7 @@ int main(int argc, char const *argv[])
             if (file.tellp() == 0) {
                 file << "Size;Threads;Duration" << endl;
             }
-            file << size << ';' << omp_get_max_threads() << ';' << result.duration << endl;
+            file << size << ';' << omp_get_max_threads() << ';' << duration << endl;
         }
     }
     catch (const po::error &e)
@@ -94,24 +94,13 @@ void initialize_matrix(matrix &A)
 {
     #pragma omp parallel
     {
-        size_t M = A.getM();
-        size_t N = A.getN();
-
-        // int thread = omp_get_thread_num();
-        // bool first_i = true;
+        ptrdiff_t M = A.getM();
+        ptrdiff_t N = A.getN();
 
         #pragma omp for schedule(static)
-        for (size_t m = 0; m < A.getM(); m++)
+        for (ptrdiff_t m = 0; m < M; m++)
         {
-            // if (first_i)
-            // {
-            //     #pragma omp critical
-            //     {
-            //         std::cout << "Thread " << thread << " started from row " << m << std::endl;
-            //         first_i = false;
-            //     }
-            // }
-            for (size_t n = 0; n < N; n++)
+            for (ptrdiff_t n = 0; n < N; n++)
             {
                 if (m==n) A[m*N + n] = 2.0;
                 else A[m*N + n] = 1.0;
@@ -125,9 +114,10 @@ void initialize_vector(matrix &V)
     #pragma omp parallel
     {
         double val = V.getM() + 1;
+        ptrdiff_t M = V.getM();
 
         #pragma omp for schedule(static)
-        for (size_t m = 0; m < V.getM(); m++)
+        for (ptrdiff_t m = 0; m < M; m++)
         {
             V[m] = val;
         }
@@ -141,26 +131,30 @@ BenchResult<matrix> benchmark(size_t test_n, size_t size)
 
     try
     {
+        matrix A(size, size);
+        initialize_matrix(A);
+        matrix V(size, 1);
+        initialize_vector(V);
+        matrix C(size, 1);
+        initialize_vector(C);
+
         for (size_t i = 0; i < test_n; i++)
         {
-            matrix A(size, size);
-            initialize_matrix(A);
-            matrix V(size, 1);
-            initialize_vector(V);
-
             const auto start{std::chrono::steady_clock::now()};
-            matrix C = A * V;
+            C = A * V;
             const auto end{std::chrono::steady_clock::now()};
             const std::chrono::duration<double> elapsed_seconds{end - start};
             times[i] = elapsed_seconds.count();
 
             if (i == test_n-1) res.result = C;
         }
+        res.result = C;
         res.duration = get_mean(times, 2);
     }
     catch(const std::exception& e)
     {
         res.status = e;
+        return res;
     }
     
     res.status = std::nullopt;
