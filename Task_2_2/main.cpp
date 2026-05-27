@@ -14,6 +14,8 @@
 #define USAGE "./integrate [-t THREADS]"
 #define nsteps 40'000'000
 
+namespace po = boost::program_options;
+
 const double a = -4.0;
 const double b = 4.0;
 
@@ -21,16 +23,13 @@ template <typename RES_T>
 struct BenchResult
 {
     std::optional<std::exception> status;
-    double duration;
-    RES_T result;
+    std::vector<std::pair<double, RES_T>> runs;
 };
 
 double integrate(double (*func)(double), double, double, int);
 double integrate_omp(double (*func)(double), double, double, int);
 void initialize_array(double* arr, size_t size);
-
-namespace po = boost::program_options;
-
+BenchResult<double> benchmark(size_t, size_t);
 
 int main(int argc, char const *argv[])
 {
@@ -64,7 +63,7 @@ int main(int argc, char const *argv[])
 
         // Main logic
 
-        auto [status, duration, res] = benchmark(100, size);
+        auto [status, runs] = benchmark(100, size);
         
         if (status.has_value())
         {
@@ -73,7 +72,10 @@ int main(int argc, char const *argv[])
         }
         else
         {
-            std::ofstream file("./results.csv", std::ios::out | std::ios::app | std::ios::ate);
+            std::ofstream file(
+                std::format("./results_{}T_{}S.csv", omp_get_max_threads(), nsteps),
+                std::ios::out | std::ios::app | std::ios::ate
+            );
 
             if (!file.is_open()) {
                 cerr << "Couldn't open file." << endl;
@@ -81,9 +83,12 @@ int main(int argc, char const *argv[])
             }
 
             if (file.tellp() == 0) {
-                file << "Size;Threads;Duration" << endl;
+                file << "Duration;Result" << endl;
             }
-            file << size << ';' << omp_get_max_threads() << ';' << duration << endl;
+            for (auto &&run : runs)
+            {
+                file << run.first << ';' << run.second << endl;
+            }
         }
     }
     catch (const po::error &e)
@@ -106,7 +111,7 @@ double integrate(double (*func)(double), double a, double b, int n)
 
     for (int i = 0; i < n; i++)
         sum += func(a + h * (i + 0.5));
-
+    
     sum *= h;
 
     return sum;
@@ -125,46 +130,48 @@ double integrate_omp(double (*func)(double), double a, double b, int n)
         int lb = threadid * items_per_thread;
         int ub = (threadid == nthreads - 1) ? (n - 1) : (lb + items_per_thread - 1);
 
+        double sum_local = 0;
         for (int i = lb; i <= ub; i++)
-            sum += func(a + h * (i + 0.5));
+            sum_local += func(a + h * (i + 0.5));
+        
+        #pragma omp atomic
+        sum += sum_local;
     }
     sum *= h;
 
     return sum;
 }
 
-BenchResult<double> benchmark(size_t test_n, size_t size)
+// Запуск бенчмарка на интегрирование функции.
+// @param size 
+BenchResult<double> benchmark(size_t test_n, size_t steps)
 {
-    BenchResult<double> res;
-    std::vector<double> times(test_n);
+    std::vector<std::pair<double, double>> runs(test_n);
 
     try
     {
-        auto array = std::make_unique<double[]>(size);
-        initialize_array(array.get(), size);
+        auto array = std::make_unique<double[]>(nsteps);
+        initialize_array(array.get(), nsteps);
 
         for (size_t i = 0; i < test_n; i++)
         {
-
-
             const auto start{std::chrono::steady_clock::now()};
-            // Load Begin
-            res.result = integrate_omp(func, a, b, nsteps);
-            // Load End
-            const auto end{std::chrono::steady_clock::now()};
 
+            // Load Begin
+            double res = integrate_omp(func, a, b, nsteps);
+            // Load End
+
+            const auto end{std::chrono::steady_clock::now()};
             const std::chrono::duration<double> elapsed_seconds{end - start};
-            times[i] = elapsed_seconds.count();
+            runs[i] = {elapsed_seconds.count(), res};
         }
-        res.duration = get_mean(times, 2);
     }
     catch(const std::exception& e)
     {
-        res.status = e;
+        return BenchResult(e, runs);
     }
     
-    res.status = std::nullopt;
-    return res;
+    return BenchResult(std::nullopt, runs);
 }
 
 void initialize_array(double* arr, size_t size)

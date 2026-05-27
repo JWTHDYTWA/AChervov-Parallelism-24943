@@ -85,7 +85,21 @@ public:
         return *this;
     }
 
+    // Контрольная сумма матрицы, служащая сразу двум целям:
+    // 1. Проверка инвариантности
+    // 2. Избежание нежеланных оптимизаций компилятора
+    uint64_t check_sum()
+    {
+        uint64_t sum = 0;
+        for (size_t i = 0; i < _M*_N; i++)
+        {
+            sum += static_cast<uint64_t>(_data[i]);
+        }
+        return sum;
+    }
+
     friend matrix operator* (const matrix&, const matrix&);
+    friend void multiply(const matrix&, const matrix&, matrix&);
 
 };
 
@@ -126,4 +140,39 @@ matrix operator* (const matrix &A, const matrix &B)
         }
     }
     return C;
+}
+
+void multiply(const matrix &A, const matrix &B, matrix& C)
+{
+    if (A._N != B._M)
+    {
+        throw std::invalid_argument("Wrong matrix dimensions: An != Bm");
+    }
+    if (A._M != C._M || B._N != C._N)
+    {
+        throw std::invalid_argument("Wrong matrix dimensions: Am != Cm or Bn != Cn");
+    }
+
+    #pragma omp parallel
+    {
+        ptrdiff_t local_M = A._M;
+        ptrdiff_t local_N = B._N;
+        ptrdiff_t local_K = A._N;
+
+        ptrdiff_t local_m_A;
+        #pragma omp for schedule(static)
+        for (ptrdiff_t m = 0; m < local_M; m++)
+        {
+            local_m_A = m * local_K;
+            for (ptrdiff_t n = 0; n < local_N; n++)
+            {
+                double sum = 0;
+                for (ptrdiff_t k = 0; k < local_K; k++)
+                {
+                    sum += (A[local_m_A + k] * B[k * local_N + n]);
+                }
+                C[m * local_N + n] = sum;
+            }
+        }
+    }
 }

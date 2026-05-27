@@ -20,14 +20,13 @@ template <typename RES_T>
 struct BenchResult
 {
     std::optional<std::exception> status;
-    double duration;
-    RES_T result;
+    std::vector<std::pair<double, RES_T>> runs;
 };
 
 
 void initialize_matrix(matrix &A);
 void initialize_vector(matrix &V);
-BenchResult<matrix> benchmark(size_t, size_t);
+BenchResult<uint64_t> benchmark(size_t, size_t);
 
 int main(int argc, char const *argv[])
 {
@@ -60,7 +59,7 @@ int main(int argc, char const *argv[])
             omp_set_num_threads(threads);
         }
 
-        auto [status, duration, res] = benchmark(100, size);
+        auto [status, runs] = benchmark(100, size);
         
         if (status.has_value())
         {
@@ -69,7 +68,10 @@ int main(int argc, char const *argv[])
         }
         else
         {
-            std::ofstream file("./results.csv", std::ios::out | std::ios::app | std::ios::ate);
+            std::ofstream file(
+                std::format("./results_{}T_{}S.csv", omp_get_max_threads(), size),
+                std::ios::out | std::ios::app | std::ios::ate
+            );
 
             if (!file.is_open()) {
                 cerr << "Couldn't open file." << endl;
@@ -77,9 +79,12 @@ int main(int argc, char const *argv[])
             }
 
             if (file.tellp() == 0) {
-                file << "Size;Threads;Duration" << endl;
+                file << "Duration;Checksum" << endl;
             }
-            file << size << ';' << omp_get_max_threads() << ';' << duration << endl;
+            for (auto &&run : runs)
+            {
+                file << run.first << ';' << run.second << endl;
+            }
         }
     }
     catch (const po::error &e)
@@ -124,10 +129,9 @@ void initialize_vector(matrix &V)
     }
 }
 
-BenchResult<matrix> benchmark(size_t test_n, size_t size)
+BenchResult<uint64_t> benchmark(size_t test_n, size_t size)
 {
-    BenchResult<matrix> res;
-    std::vector<double> times(test_n);
+    std::vector<std::pair<double, uint64_t>> runs(test_n);
 
     try
     {
@@ -141,22 +145,16 @@ BenchResult<matrix> benchmark(size_t test_n, size_t size)
         for (size_t i = 0; i < test_n; i++)
         {
             const auto start{std::chrono::steady_clock::now()};
-            C = A * V;
+            multiply(A, V, C);
             const auto end{std::chrono::steady_clock::now()};
             const std::chrono::duration<double> elapsed_seconds{end - start};
-            times[i] = elapsed_seconds.count();
-
-            if (i == test_n-1) res.result = C;
+            runs[i] = {elapsed_seconds.count(), C.check_sum()};
         }
-        res.result = C;
-        res.duration = get_mean(times, 2);
     }
     catch(const std::exception& e)
     {
-        res.status = e;
-        return res;
+        return BenchResult(e, runs);
     }
     
-    res.status = std::nullopt;
-    return res;
+    return BenchResult(std::nullopt, runs);
 }
