@@ -52,6 +52,7 @@ int main(int argc, char const *argv[])
 
         // size_t size;
         int threads = 0;
+        size_t benchmarks = 1;
         bool single_section = false;
         size_t size;
 
@@ -60,6 +61,7 @@ int main(int argc, char const *argv[])
         ("help,h", "Displays this message")
         ("threads,t", po::value<int>(&threads), "Number of parallel threads")
         ("size,s", po::value<size_t>(&size)->required(), "Matrix dimension span - M=N")
+        ("bench,b", po::value<size_t>(&benchmarks), "Benchmark iterations")
         ("mode,m", po::bool_switch(&single_section), "Single section mode");
 
         po::variables_map vm;
@@ -80,7 +82,7 @@ int main(int argc, char const *argv[])
         
         /// MAIN LOGIC ///
 
-        auto runs = benchmark(50, size, single_section);
+        auto runs = benchmark(benchmarks, size, single_section);
         
         std::ofstream file(
             boost::str(boost::format("./results_%dT_%dS.csv") % omp_get_max_threads() % size),
