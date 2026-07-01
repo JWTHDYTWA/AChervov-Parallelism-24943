@@ -18,9 +18,6 @@
 
 namespace po = boost::program_options;
 
-const double a = -4.0;
-const double b = 4.0;
-
 template <typename RES_T>
 using BenchResult = std::vector<std::pair<double, RES_T>>;
 // {

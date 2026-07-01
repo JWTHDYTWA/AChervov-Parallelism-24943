@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import os
 import csv
@@ -7,30 +8,61 @@ import matplotlib.pyplot as plt
 results_dir = os.path.join(os.getcwd(), 'aggregated_results.csv')
 
 
-def extract_durations(file):
+def extract_durations(file, group_column):
     data = {}
     reader = csv.DictReader(file, delimiter=';')
+    
+    # Проверяем наличие целевого столбца в заголовке CSV
+    if reader.fieldnames and group_column not in reader.fieldnames:
+        raise ValueError(f"Столбец '{group_column}' не найден в CSV файле. "
+                         f"Доступные столбцы: {', '.join(reader.fieldnames)}")
+
     for row in reader:
-        size = int(row['Size'])
         threads = int(row['Threads'])
-        if size not in data:
-            data[size] = {}
+        
+        # Пытаемся привести значение группирующего столбца к числу для корректной сортировки
+        raw_val = row[group_column]
+        try:
+            if '.' in raw_val:
+                group_val = float(raw_val)
+            else:
+                group_val = int(raw_val)
+        except ValueError:
+            group_val = raw_val
+
+        if group_val not in data:
+            data[group_val] = {}
         # Используем Filtered_Mean в качестве времени выполнения
-        data[size][threads] = float(row['Filtered_Mean'])
+        data[group_val][threads] = float(row['Filtered_Mean'])
     return data
 
 
 def main():
+    # Настройка парсера аргументов командной строки
+    parser = argparse.ArgumentParser(description='Построение графиков ускорения по данным из CSV.')
+    parser.add_argument(
+        '--group-by', '-g',
+        type=str,
+        default='Size',
+        help='Имя столбца в CSV, по уникальным значениям которого будут строиться отдельные линии (по умолчанию: Size)'
+    )
+    args = parser.parse_args()
+    group_column = args.group_by
+
     if os.path.exists(results_dir):
-        with open(results_dir, 'r') as f:
-            data = extract_durations(f)
+        try:
+            with open(results_dir, 'r') as f:
+                data = extract_durations(f, group_column)
+        except ValueError as e:
+            print(f"Ошибка чтения данных: {e}")
+            return 1
     else:
-        print(f'No aggregated_results.csv found in {os.getcwd()}.')
+        print(f'Файл aggregated_results.csv не найден в директории {os.getcwd()}.')
         return 1
 
     plt.figure(figsize=(10, 6))
 
-    # Сначала найдем все уникальные значения потоков, чтобы построить линию идеального (линейного) ускорения
+    # Сначала найдем все уникальные значения потоков для построения линии идеального ускорения
     all_threads = set()
     for val in data.values():
         all_threads.update(val.keys())
@@ -39,9 +71,8 @@ def main():
         sorted_all_threads = sorted(list(all_threads))
         plt.plot(sorted_all_threads, sorted_all_threads, label='Linear (Ideal)', color='gray', linestyle='--', linewidth=2)
 
-    # Строим график для каждого размера (Size)
-    # Сортируем по ключам size, чтобы линии в легенде шли по возрастанию размера
-    for size, val in sorted(data.items()):
+    # Строим график для каждой уникальной группы
+    for group_val, val in sorted(data.items()):
         sorted_threads = sorted(val.keys())
         
         thread_list = []
@@ -57,17 +88,17 @@ def main():
         # Находим время для 1 потока
         one_thread_data = duration_arr[thread_arr == 1]
         if len(one_thread_data) == 0:
-            print(f"Warning: 1 thread data not found for size {size}. Skipping.")
+            print(f"Предупреждение: данные для 1 потока не найдены для значения {group_val}. Пропуск группы.")
             continue
             
         one_thread_d = one_thread_data[0]
         speedup_arr = one_thread_d / duration_arr
 
-        # Строим линию для текущего размера. Цвет выбирается автоматически.
+        # Название линии в легенде теперь адаптируется под выбранный столбец
         plt.plot(
             thread_arr, 
             speedup_arr, 
-            label=f'Sp [M=N={size}]', 
+            label=f'Sp [{group_column}={group_val}]', 
             marker='o', 
             markersize=6, 
             markerfacecolor='white', 
@@ -84,11 +115,12 @@ def main():
     plt.grid(True, alpha=0.3)
     plt.xlabel('Num threads (P)')
     plt.ylabel('Speedup')
-    plt.title('Speed Up on P threads')
+    plt.title(f'Speed Up on P threads (grouped by {group_column})')
 
-    # Сохраняем объединенный график в текущую рабочую директорию
-    plt.savefig(os.path.join(os.getcwd(), 'plot_combined.jpg'), dpi=300)
-    plt.show()
+    # Имя сохраняемого файла теперь содержит название столбца группировки
+    filename = f'plot_combined_by_{group_column}.jpg'
+    plt.savefig(os.path.join(os.getcwd(), filename), dpi=300)
+    print(f"График успешно сохранен как {filename}")
 
 
 if __name__ == '__main__':
