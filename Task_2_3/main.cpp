@@ -34,8 +34,9 @@ double integrate_omp(double (*func)(double), double, double, int);
 void initialize_vector_with_value(matrix &v, const double value);
 void initialize_matrix(matrix &a);
 
-BenchResult<double> benchmark(size_t, size_t);
+BenchResult<double> benchmark(size_t, size_t, bool);
 void solve_blas_sections(const matrix &A, const matrix &b, matrix &x, matrix &r_buf, const double tau, const double eps);
+void solve_blas_single(const matrix &A, const matrix &b, matrix &x, matrix &r_buf, const double tau, const double eps);
 
 
 int main(int argc, char const *argv[])
@@ -51,13 +52,15 @@ int main(int argc, char const *argv[])
 
         // size_t size;
         int threads = 0;
+        bool single_section = false;
         size_t size;
 
         po::options_description desc("Options");
         desc.add_options()
         ("help,h", "Displays this message")
         ("threads,t", po::value<int>(&threads), "Number of parallel threads")
-        ("size,s", po::value<size_t>(&size)->required(), "Matrix dimension span - M=N");
+        ("size,s", po::value<size_t>(&size)->required(), "Matrix dimension span - M=N")
+        ("mode,m", po::bool_switch(&single_section), "Single section mode");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -77,7 +80,7 @@ int main(int argc, char const *argv[])
         
         /// MAIN LOGIC ///
 
-        auto runs = benchmark(50, size);
+        auto runs = benchmark(50, size, single_section);
         
         std::ofstream file(
             boost::str(boost::format("./results_%dT_%dS.csv") % omp_get_max_threads() % size),
@@ -114,10 +117,12 @@ int main(int argc, char const *argv[])
 
 // Запуск бенчмарка на решение СЛАУ методом простых итераций.
 // @param test_n Число независимых тестов
-// @param size 
-BenchResult<double> benchmark(size_t test_n, size_t size)
+// @param size Размер матрицы и вектора.
+// @param ss Режим Single Section.
+BenchResult<double> benchmark(size_t test_n, size_t size, bool ss)
 {
     std::vector<std::pair<double, double>> runs(test_n);
+    auto solve_blas = ss ? solve_blas_single : solve_blas_sections;
 
     matrix A(size, size);
     initialize_matrix(A);
@@ -134,7 +139,7 @@ BenchResult<double> benchmark(size_t test_n, size_t size)
         const auto start{std::chrono::steady_clock::now()};
         // Load Begin
 
-        solve_blas_sections(A, b, x, r, 2.0 / (size + 2.0), 1e-6);
+        solve_blas(A, b, x, r, 2.0 / (size + 2.0), 1e-6);
 
         // Load End
         const auto end{std::chrono::steady_clock::now()};
@@ -224,6 +229,61 @@ void solve_blas_sections(const matrix &A, const matrix &b, matrix &x, matrix &r_
         #pragma omp parallel for schedule(static)
         for (ptrdiff_t i = 0; i < N; i++) {
             x[i] -= tau * r_buf[i];
+        }
+    }
+}
+
+void solve_blas_single(const matrix &A, const matrix &b, matrix &x, matrix &r_buf, const double tau, const double eps)
+{
+    if (b.getN() != 1 || r_buf.getN() != 1)
+        throw std::invalid_argument("Some of vectors have N>1.");
+    if (A.getN() != b.getM())
+        throw std::invalid_argument("Matrix A and vector b are incompatible.");
+    if (b.getM() != r_buf.getM())
+        throw std::invalid_argument("Some of vectors are not the same size");
+
+    const ptrdiff_t N = A.getM();
+    double b_norm = vector_norm(b);
+
+    bool stop = false;
+    double r_sqr_sum = 0.0;
+
+    #pragma omp parallel shared(A, b, x, r_buf, stop, r_sqr_sum)
+    {
+        while (true)
+        {
+            #pragma omp single
+            {
+                r_sqr_sum = 0.0;
+            }
+
+            #pragma omp for schedule(static) reduction(+:r_sqr_sum)
+            for (ptrdiff_t i = 0; i < N; i++) {
+                double ax_i = 0.0;
+                for (ptrdiff_t j = 0; j < N; j++) {
+                    ax_i += A[i*N+j] * x[j];
+                }
+                double r_val = ax_i - b[i];
+                r_buf[i] = r_val;
+                r_sqr_sum += r_val * r_val;
+            }
+
+            #pragma omp single
+            {
+                double err = std::sqrt(r_sqr_sum) / b_norm;
+                if (err < eps) {
+                    stop = true;
+                }
+            }
+
+            if (stop) {
+                break;
+            }
+
+            #pragma omp for schedule(static)
+            for (ptrdiff_t i = 0; i < N; i++) {
+                x[i] -= tau * r_buf[i];
+            }
         }
     }
 }
