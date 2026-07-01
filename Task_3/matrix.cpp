@@ -6,6 +6,7 @@
 #include <optional>
 #include <chrono>
 #include <thread>
+#include <format>
 
 #include <boost/program_options.hpp>
 
@@ -125,7 +126,7 @@ void initialize_vector(matrix &V)
 {
     #pragma omp parallel
     {
-        double val = V.getM() + 1;
+        double val = (double)V.getM() + 1.0;
         ptrdiff_t M = V.getM();
 
         #pragma omp for schedule(static)

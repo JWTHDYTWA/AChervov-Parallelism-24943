@@ -5,6 +5,7 @@
 #include <vector>
 #include <optional>
 #include <chrono>
+#include <format>
 #include <omp.h>
 
 #include <boost/program_options.hpp>

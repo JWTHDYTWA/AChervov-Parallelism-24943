@@ -10,6 +10,7 @@
 #include <numbers>
 #include <queue>
 #include <latch>
+#include <format>
 
 #include <boost/program_options.hpp>
 

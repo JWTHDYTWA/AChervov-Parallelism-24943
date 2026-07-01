@@ -5,6 +5,7 @@
 #include <chrono>
 #include <optional>
 #include <omp.h>
+#include <format>
 #include <cmath>
 
 #include <boost/program_options.hpp>
