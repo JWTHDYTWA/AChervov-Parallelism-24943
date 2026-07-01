@@ -102,36 +102,45 @@ int main(int argc, char const *argv[])
 
 void initialize_matrix(matrix &A)
 {
-    #pragma omp parallel
-    {
-        ptrdiff_t M = A.getM();
-        ptrdiff_t N = A.getN();
+    ptrdiff_t M = A.getM();
+    ptrdiff_t N = A.getN();
+    size_t threads_count = threadpool->get_thread_count();
 
-        #pragma omp for schedule(static)
-        for (ptrdiff_t m = 0; m < M; m++)
-        {
-            for (ptrdiff_t n = 0; n < N; n++)
+    threading::parallel_for_with_pool(
+        static_cast<ptrdiff_t>(0), M, *threadpool, threads_count,
+        [&A, N](ptrdiff_t start, ptrdiff_t end) {
+            for (ptrdiff_t m = start; m < end; ++m)
             {
-                if (m==n) A[m*N + n] = 2.0;
-                else A[m*N + n] = 1.0;
+                for (ptrdiff_t n = 0; n < N; ++n)
+                {
+                    if (m == n) {
+                        A[m * N + n] = 2.0;
+                    } else {
+                        A[m * N + n] = 1.0;
+                    }
+                }
             }
         }
-    }
+    );
 }
 
 void initialize_vector(matrix &V)
 {
-    #pragma omp parallel
-    {
-        double val = (double)V.getM() + 1.0;
-        ptrdiff_t M = V.getM();
+    ptrdiff_t M = V.getM();
+    double val = static_cast<double>(M) + 1.0;
+    size_t threads_count = threadpool->get_thread_count();
 
-        #pragma omp for schedule(static)
-        for (ptrdiff_t m = 0; m < M; m++)
-        {
-            V[m] = val;
+    // Распараллеливаем цикл по элементам вектора (от 0 до M)
+    threading::parallel_for_with_pool(
+        static_cast<ptrdiff_t>(0), M, *threadpool, threads_count,
+        [&V, val](ptrdiff_t start, ptrdiff_t end) {
+            // Каждый поток обрабатывает свой диапазон элементов [start, end)
+            for (ptrdiff_t m = start; m < end; ++m)
+            {
+                V[m] = val;
+            }
         }
-    }
+    );
 }
 
 BenchResult<uint64_t> benchmark(size_t test_n, size_t size, size_t threads = std::thread::hardware_concurrency())
