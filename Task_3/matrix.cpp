@@ -6,9 +6,10 @@
 #include <optional>
 #include <chrono>
 #include <thread>
-#include <format>
+// #include <format>
 
 #include <boost/program_options.hpp>
+#include <boost/format.hpp>
 
 #include "matrix.hpp"
 #include "utilities.hpp"
@@ -73,7 +74,7 @@ int main(int argc, char const *argv[])
         /// RESULTS HANDLING ///
         
         std::ofstream file(
-            std::format("./results_{}T_{}S.csv", threads, size),
+            boost::str(boost::format("./results_%dT_%dS.csv") % threads % size),
             std::ios::out | std::ios::app | std::ios::ate
         );
 

@@ -5,10 +5,11 @@
 #include <chrono>
 #include <optional>
 #include <omp.h>
-#include <format>
+// #include <format>
 #include <cmath>
 
 #include <boost/program_options.hpp>
+#include <boost/format.hpp>
 
 #include "utilities.hpp"
 
@@ -74,7 +75,7 @@ int main(int argc, char const *argv[])
         else
         {
             std::ofstream file(
-                std::format("./results_{}T_{}S.csv", omp_get_max_threads(), nsteps),
+                boost::str(boost::format("./results_%dT_%dS.csv") % omp_get_max_threads() % nsteps),
                 std::ios::out | std::ios::app | std::ios::ate
             );
 

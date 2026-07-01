@@ -3,16 +3,16 @@
 #include <fstream>
 #include <memory>
 #include <vector>
-#include <optional>
 #include <chrono>
 #include <thread>
 #include <random>
 #include <numbers>
 #include <queue>
 #include <latch>
-#include <format>
+// #include <format>
 
 #include <boost/program_options.hpp>
+#include <boost/format.hpp>
 
 #include "matrix.hpp"
 #include "utilities.hpp"
@@ -265,7 +265,7 @@ int main(int argc, char const *argv[])
         /// RESULTS HANDLING ///
         
         std::ofstream file(
-            std::format("./results_server_{}T.csv", threads),
+            boost::str(boost::format("./results_server_%dT.csv") % threads),
             std::ios::out | std::ios::app | std::ios::ate
         );
 
