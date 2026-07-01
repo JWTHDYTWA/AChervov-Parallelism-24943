@@ -54,6 +54,7 @@ def process_files():
                         try:
                             durations.append(float(row["Duration"]))
                         except ValueError:
+                            # Пропускаем некорректные строки, если они есть
                             continue
         except Exception as e:
             print(f"Ошибка при чтении файла {path.name}: {e}")

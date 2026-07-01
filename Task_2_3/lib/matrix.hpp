@@ -7,6 +7,8 @@
 #include <utility>
 #include <omp.h>
 
+#include "utilities.hpp"
+
 class matrix
 {
 
@@ -179,18 +181,18 @@ matrix operator* (const matrix &A, const matrix &B)
 
 void matrix_multiply(const matrix &A, const matrix &B, matrix& C)
 {
-    if (A._N != B._M)
+    if (A.getN() != B.getM())
     {
         throw std::invalid_argument("Wrong matrix dimensions: An != Bm");
     }
-    if (A._M != C._M || B._N != C._N)
+    if (A.getM() != C.getM() || B.getN() != C.getN())
     {
         throw std::invalid_argument("Wrong matrix dimensions: Am != Cm or Bn != Cn");
     }
 
-    ptrdiff_t local_M = A._M;
-    ptrdiff_t local_N = B._N;
-    ptrdiff_t local_K = A._N;
+    const ptrdiff_t local_M = A.getM();
+    const ptrdiff_t local_N = B.getN();
+    const ptrdiff_t local_K = A.getN();
 
     // Сценарий 1: Умножение матрицы на вектор
     if (local_N == 1)
@@ -241,4 +243,67 @@ void matrix_multiply(const matrix &A, const matrix &B, matrix& C)
             }
         }
     }
+}
+
+void matrix_const_mult_inplace(matrix &A, const double y)
+{
+    const ptrdiff_t N = A.getN();
+    const ptrdiff_t M = A.getM();
+
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t m = 0; m < M; m++)
+    {
+        for (ptrdiff_t n = 0; n < N; n++)
+        {
+            A[m*N + n] *= y;
+        }
+    }
+}
+
+void matrix_subtract(const matrix &A, const matrix &B, matrix &C)
+{
+    if (!all_equal(A.getM(), B.getM(), C.getM()) || !all_equal(A.getN(), B.getN(), C.getN()))
+        throw std::invalid_argument("Matrices A,B are not the same size.");
+    
+    const ptrdiff_t N = A.getN();
+    const ptrdiff_t M = A.getM();
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t m = 0; m < M; m++)
+    {
+        for (ptrdiff_t n = 0; n < N; n++)
+        {
+            C[m*N + n] = A[m*N + n] - B[m*N + n];
+        }
+    }
+}
+
+void matrix_add(const matrix &A, const matrix &B, matrix &C)
+{
+    if (!all_equal(A.getM(), B.getM(), C.getM()) || !all_equal(A.getN(), B.getN(), C.getN()))
+        throw std::invalid_argument("Matrices A,B are not the same size.");
+    
+    const ptrdiff_t N = A.getN();
+    const ptrdiff_t M = A.getM();
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t m = 0; m < M; m++)
+    {
+        for (ptrdiff_t n = 0; n < N; n++)
+        {
+            C[m*N + n] = A[m*N + n] + B[m*N + n];
+        }
+    }
+}
+
+double vector_norm(const matrix &v)
+{
+    if (v.getN() != 1) throw std::invalid_argument("Vector width must be 1.");
+    double sqr_sum = 0;
+
+    const ptrdiff_t M = v.getM();
+    #pragma omp parallel for schedule(static) reduction(+:sqr_sum)
+    for (ptrdiff_t i = 0; i < M; i++)
+    {
+        sqr_sum += v[i] * v[i];
+    }
+    return std::sqrt(sqr_sum);
 }

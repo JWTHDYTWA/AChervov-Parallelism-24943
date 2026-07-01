@@ -38,7 +38,7 @@ int main(int argc, char const *argv[])
     
     try
     {
-        size_t size;
+        // size_t size;
         int threads = 0;
 
         po::options_description desc("Options");
@@ -63,7 +63,7 @@ int main(int argc, char const *argv[])
 
         // Main logic
 
-        auto [status, runs] = benchmark(100, size);
+        auto [status, runs] = benchmark(100, nsteps);
         
         if (status.has_value())
         {
@@ -150,15 +150,17 @@ BenchResult<double> benchmark(size_t test_n, size_t steps)
 
     try
     {
-        auto array = std::make_unique<double[]>(nsteps);
-        initialize_array(array.get(), nsteps);
+        auto array = std::make_unique<double[]>(steps);
+        initialize_array(array.get(), steps);
+        double (*integrator)(double (*func)(double), double a, double b, int n);
+        integrator = omp_get_max_threads() == 1 ? integrate : integrate_omp;
 
         for (size_t i = 0; i < test_n; i++)
         {
             const auto start{std::chrono::steady_clock::now()};
 
             // Load Begin
-            double res = integrate_omp(func, a, b, nsteps);
+            double res = integrator(func, a, b, steps);
             // Load End
 
             const auto end{std::chrono::steady_clock::now()};
