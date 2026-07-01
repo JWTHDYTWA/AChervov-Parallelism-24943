@@ -3,7 +3,7 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-# Файл теперь ищется в текущей рабочей директории (откуда запущен скрипт)
+# Файл ищется в текущей рабочей директории (откуда запущен скрипт)
 results_dir = os.path.join(os.getcwd(), 'aggregated_results.csv')
 
 
@@ -28,8 +28,20 @@ def main():
         print(f'No aggregated_results.csv found in {os.getcwd()}.')
         return 1
 
-    for size, val in data.items():
-        # Сортируем потоки по возрастанию для корректного построения линий на графике
+    plt.figure(figsize=(10, 6))
+
+    # Сначала найдем все уникальные значения потоков, чтобы построить линию идеального (линейного) ускорения
+    all_threads = set()
+    for val in data.values():
+        all_threads.update(val.keys())
+    
+    if all_threads:
+        sorted_all_threads = sorted(list(all_threads))
+        plt.plot(sorted_all_threads, sorted_all_threads, label='Linear (Ideal)', color='gray', linestyle='--', linewidth=2)
+
+    # Строим график для каждого размера (Size)
+    # Сортируем по ключам size, чтобы линии в легенде шли по возрастанию размера
+    for size, val in sorted(data.items()):
         sorted_threads = sorted(val.keys())
         
         thread_list = []
@@ -45,33 +57,38 @@ def main():
         # Находим время для 1 потока
         one_thread_data = duration_arr[thread_arr == 1]
         if len(one_thread_data) == 0:
-            print(f"Warning: 1 thread data not found for size {size}. Skipping plot.")
+            print(f"Warning: 1 thread data not found for size {size}. Skipping.")
             continue
             
         one_thread_d = one_thread_data[0]
         speedup_arr = one_thread_d / duration_arr
 
-        # Очищаем фигуру перед каждым новым графиком
-        plt.figure()
+        # Строим линию для текущего размера. Цвет выбирается автоматически.
+        plt.plot(
+            thread_arr, 
+            speedup_arr, 
+            label=f'Sp [M=N={size}]', 
+            marker='o', 
+            markersize=6, 
+            markerfacecolor='white', 
+            markeredgewidth=2
+        )
 
-        plt.plot(thread_arr, thread_arr, label='Linear', color='gray', linestyle='--', linewidth=2)
-        plt.plot(thread_arr, speedup_arr, label='Sp', color='red', marker='o', markersize=8, markerfacecolor='white', markeredgewidth=2)
-        
-        plt.legend(loc='lower right', 
-                   fontsize=10,
-                   facecolor='#f0f0f0',
-                   edgecolor='gray',
-                   framealpha=1,
-                   borderpad=1)
+    plt.legend(loc='upper left', 
+               fontsize=10,
+               facecolor='#f0f0f0',
+               edgecolor='gray',
+               framealpha=1,
+               borderpad=1)
 
-        plt.grid(True, alpha=0.3)
-        plt.xlabel('Num threads (P)')
-        plt.ylabel('Speedup')
-        plt.title(f'Speed Up on P threads [M=N={size}]')
+    plt.grid(True, alpha=0.3)
+    plt.xlabel('Num threads (P)')
+    plt.ylabel('Speedup')
+    plt.title('Speed Up on P threads')
 
-        # Сохраняем график в текущую рабочую директорию
-        plt.savefig(os.path.join(os.getcwd(), f'plot_{size}.jpg'), dpi=300)
-        plt.show()
+    # Сохраняем объединенный график в текущую рабочую директорию
+    plt.savefig(os.path.join(os.getcwd(), 'plot_combined.jpg'), dpi=300)
+    plt.show()
 
 
 if __name__ == '__main__':
