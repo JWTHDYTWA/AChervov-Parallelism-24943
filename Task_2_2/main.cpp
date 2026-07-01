@@ -37,6 +37,7 @@ int main(int argc, char const *argv[])
 {
     // Using standard streams
     using std::cout, std::cin, std::cerr, std::endl;
+    CursorGuard cg();
     
     try
     {
@@ -159,6 +160,7 @@ BenchResult<double> benchmark(size_t test_n, size_t steps)
 
         for (size_t i = 0; i < test_n; i++)
         {
+            std::cout << clear_line << "Benchmark iteration " << i+1 << "/" << test_n << std::flush;
             const auto start{std::chrono::steady_clock::now()};
 
             // Load Begin
@@ -169,6 +171,7 @@ BenchResult<double> benchmark(size_t test_n, size_t steps)
             const std::chrono::duration<double> elapsed_seconds{end - start};
             runs[i] = {elapsed_seconds.count(), res};
         }
+        std::cout << std::endl;
     }
     catch(const std::exception& e)
     {

@@ -43,7 +43,7 @@ int main(int argc, char const *argv[])
     // Using standard streams
     using std::cout, std::cin, std::cerr, std::endl;
 
-    auto cg = CursorGuard();
+    CursorGuard cg();
     
     try
     {

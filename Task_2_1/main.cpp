@@ -34,6 +34,8 @@ int main(int argc, char const *argv[])
 {
     // Using standard streams
     using std::cout, std::cin, std::cerr, std::endl;
+
+    CursorGuard cg();
     
     try
     {
@@ -146,12 +148,15 @@ BenchResult<uint64_t> benchmark(size_t test_n, size_t size)
 
         for (size_t i = 0; i < test_n; i++)
         {
+            std::cout << clear_line << "Benchmark iteration " << i+1 << "/" << test_n << std::flush;
+
             const auto start{std::chrono::steady_clock::now()};
             matrix_multiply(A, V, C);
             const auto end{std::chrono::steady_clock::now()};
             const std::chrono::duration<double> elapsed_seconds{end - start};
             runs[i] = {elapsed_seconds.count(), C.check_sum()};
         }
+        std::cout << std::endl;
     }
     catch(const std::exception& e)
     {
