@@ -166,12 +166,13 @@ int main(int argc, char const *argv[])
         sin_outputs.reserve(client_tasks[0]);
         sqrt_outputs.reserve(client_tasks[1]);
         pow_outputs.reserve(client_tasks[2]);
+        int error_count = 0;
 
         {
             std::vector<std::jthread> clients(3);
             std::latch start_latch(3);
 
-            clients[0] = std::jthread([&server, &sin_outputs, &client_tasks, &start_latch](std::stop_token stoken) mutable {
+            clients[0] = std::jthread([&server, &sin_outputs, &client_tasks, &start_latch, &error_count](std::stop_token stoken) mutable {
                 try
                 {
                     std::random_device lrd;
@@ -195,7 +196,11 @@ int main(int argc, char const *argv[])
                     for (auto &&i : idx)
                     {
                         auto result = server.request_result(i.first);
-                        sin_outputs.push_back({i.first, result, std::sin(i.second)});
+                        auto check_value = std::sin(i.second);
+                        sin_outputs.push_back({i.first, result, check_value});
+                        if (std::abs(result - check_value) > 1e-6) {
+                            error_count++;
+                        }
                     }
                 }
                 catch (const std::exception &e)
@@ -204,7 +209,7 @@ int main(int argc, char const *argv[])
                 }
             });
 
-            clients[1] = std::jthread([&server, &sqrt_outputs, &client_tasks, &start_latch](std::stop_token stoken) mutable {
+            clients[1] = std::jthread([&server, &sqrt_outputs, &client_tasks, &start_latch, &error_count](std::stop_token stoken) mutable {
                 try
                 {
                     std::random_device lrd;
@@ -228,7 +233,11 @@ int main(int argc, char const *argv[])
                     for (auto &&i : idx)
                     {
                         auto result = server.request_result(i.first);
-                        sqrt_outputs.push_back({i.first, result, std::sqrt(i.second)});
+                        auto check_value = std::sqrt(i.second);
+                        sqrt_outputs.push_back({i.first, result, check_value});
+                        if (std::abs(result - check_value) > 1e-6) {
+                            error_count++;
+                        }
                     }
                 }
                 catch (const std::exception &e)
@@ -237,7 +246,7 @@ int main(int argc, char const *argv[])
                 }
             });
 
-            clients[2] = std::jthread([&server, &pow_outputs, &client_tasks, &start_latch](std::stop_token stoken) mutable {
+            clients[2] = std::jthread([&server, &pow_outputs, &client_tasks, &start_latch, &error_count](std::stop_token stoken) mutable {
                 try
                 {
                     std::random_device lrd;
@@ -263,7 +272,11 @@ int main(int argc, char const *argv[])
                     for (auto &&i : idx)
                     {
                         auto result = server.request_result(std::get<0>(i));
-                        pow_outputs.push_back({std::get<0>(i), result, std::pow(std::get<1>(i), std::get<2>(i))});
+                        auto check_value = std::pow(std::get<1>(i), std::get<2>(i));
+                        pow_outputs.push_back({std::get<0>(i), result, check_value});
+                        if (std::abs(result - check_value) > 1e-6) {
+                            error_count++;
+                        }
                     }
                 }
                 catch (const std::exception &e)
@@ -274,6 +287,8 @@ int main(int argc, char const *argv[])
         }
 
         /// RESULTS HANDLING ///
+
+        cout << "All tasks completed. Total errors: " << error_count << endl;
         
         std::ofstream file(
             boost::str(boost::format("./results_server_%dT.csv") % threads),
