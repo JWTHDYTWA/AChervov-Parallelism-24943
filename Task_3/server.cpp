@@ -26,6 +26,12 @@ namespace po = boost::program_options;
 
 /// TYPE DEFINITIONS ///
 
+struct FunctionResult {
+    size_t task_id;
+    double result;
+    double check_value;
+};
+
 template <typename T>
 class Server {
     private:
@@ -154,9 +160,9 @@ int main(int argc, char const *argv[])
             client_tasks[i] = dis(gen);
         }
 
-        std::vector<std::pair<size_t, double>> sin_outputs;
-        std::vector<std::pair<size_t, double>> sqrt_outputs;
-        std::vector<std::pair<size_t, double>> pow_outputs;
+        std::vector<FunctionResult> sin_outputs;
+        std::vector<FunctionResult> sqrt_outputs;
+        std::vector<FunctionResult> pow_outputs;
         sin_outputs.reserve(client_tasks[0]);
         sqrt_outputs.reserve(client_tasks[1]);
         pow_outputs.reserve(client_tasks[2]);
@@ -173,22 +179,23 @@ int main(int argc, char const *argv[])
                     std::uniform_real_distribution ldis(-std::numbers::pi, std::numbers::pi);
 
                     size_t tasks = client_tasks[0];
-                    std::vector<size_t> idx;
+                    std::vector<std::pair<size_t, double>> idx;
                     idx.reserve(tasks);
 
                     start_latch.arrive_and_wait();
 
                     for (ptrdiff_t i = 0; i < tasks; i++)
                     {
-                        auto id = server.add_task(fun_sin<double>, ldis(lgen));
-                        idx.push_back(id);
+                        double arg = ldis(lgen);
+                        auto id = server.add_task(fun_sin<double>, arg);
+                        idx.push_back({id, arg});
                         std::this_thread::yield();
                     }
                     
                     for (auto &&i : idx)
                     {
-                        auto result = server.request_result(i);
-                        sin_outputs.push_back({i, result});
+                        auto result = server.request_result(i.first);
+                        sin_outputs.push_back({i.first, result, std::sin(i.second)});
                     }
                 }
                 catch (const std::exception &e)
@@ -205,22 +212,23 @@ int main(int argc, char const *argv[])
                     std::uniform_real_distribution ldis(0.0, 1000000.0);
 
                     size_t tasks = client_tasks[1];
-                    std::vector<size_t> idx;
+                    std::vector<std::pair<size_t, double>> idx;
                     idx.reserve(tasks);
 
                     start_latch.arrive_and_wait();
 
                     for (ptrdiff_t i = 0; i < tasks; i++)
                     {
-                        auto id = server.add_task(fun_sqrt<double>, ldis(lgen));
-                        idx.push_back(id);
+                        double arg = ldis(lgen);
+                        auto id = server.add_task(fun_sqrt<double>, arg);
+                        idx.push_back({id, arg});
                         std::this_thread::yield();
                     }
                     
                     for (auto &&i : idx)
                     {
-                        auto result = server.request_result(i);
-                        sqrt_outputs.push_back({i, result});
+                        auto result = server.request_result(i.first);
+                        sqrt_outputs.push_back({i.first, result, std::sqrt(i.second)});
                     }
                 }
                 catch (const std::exception &e)
@@ -238,22 +246,24 @@ int main(int argc, char const *argv[])
                     std::uniform_real_distribution ldis2(0.0, 10.0);
 
                     size_t tasks = client_tasks[2];
-                    std::vector<size_t> idx;
+                    std::vector<std::tuple<size_t, double, double>> idx;
                     idx.reserve(tasks);
 
                     start_latch.arrive_and_wait();
 
                     for (ptrdiff_t i = 0; i < tasks; i++)
                     {
-                        auto id = server.add_task(fun_pow<double>, ldis1(lgen), ldis2(lgen));
-                        idx.push_back(id);
+                        double x = ldis1(lgen);
+                        double y = ldis2(lgen);
+                        auto id = server.add_task(fun_pow<double>, x, y);
+                        idx.push_back({id, x, y});
                         std::this_thread::yield();
                     }
                     
                     for (auto &&i : idx)
                     {
-                        auto result = server.request_result(i);
-                        pow_outputs.push_back({i, result});
+                        auto result = server.request_result(std::get<0>(i));
+                        pow_outputs.push_back({std::get<0>(i), result, std::pow(std::get<1>(i), std::get<2>(i))});
                     }
                 }
                 catch (const std::exception &e)
@@ -276,19 +286,19 @@ int main(int argc, char const *argv[])
         }
 
         if (file.tellp() == 0) {
-            file << "Task;Id;Result" << endl;
+            file << "Task;Id;Result;Expected" << endl;
         }
         for (auto &&res : sin_outputs)
         {
-            file << "sin" << ';' << res.first << ';' << res.second << endl;
+            file << "sin" << ';' << res.task_id << ';' << res.result << ';' << res.check_value << endl;
         }
         for (auto &&res : sqrt_outputs)
         {
-            file << "sqrt" << ';' << res.first << ';' << res.second << endl;
+            file << "sqrt" << ';' << res.task_id << ';' << res.result << ';' << res.check_value << endl;
         }
         for (auto &&res : pow_outputs)
         {
-            file << "pow" << ';' << res.first << ';' << res.second << endl;
+            file << "pow" << ';' << res.task_id << ';' << res.result << ';' << res.check_value << endl;
         }
 
     }
